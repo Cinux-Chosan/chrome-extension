@@ -30,8 +30,7 @@ export async function queryCookies(urlOrDomain: string) {
 }
 
 export async function queryAllCookies() {
-    console.time('queryAllCookies')
-    return chrome.cookies.getAll({}).then((v) => {console.timeEnd('queryAllCookies');return v})
+    return chrome.cookies.getAll({})
 }
 
 // 查询所有的 cookie 并且根据域名进行分组
@@ -56,10 +55,8 @@ export async function setCookiesByUrl(url: string, cookies: chrome.cookies.Cooki
 
 export async function updateCookieField<T extends keyof Cookie>(cookie: Cookie, fieldName: T, newValue: Cookie[T], oldValue: Cookie[T]) {
     if (newValue !== oldValue) {
-        if (fieldName === 'name') {
-            // 如果更新字段为 name，则需要删除原来的字段并重新设置新字段
-            await removeCookie({ ...cookie, [fieldName]: oldValue })
-        }
+        // name 和 path 改变会插入新的 cookie，而非覆盖原来的 cookie，而如果是 secure 从 true 变为 false 会报错，因此直接统一删除旧的 cookie 重新插入 cookie
+        await removeCookie({ ...cookie, [fieldName]: oldValue })
         return setCookie({ ...cookie, [fieldName]: newValue })
     }
 }

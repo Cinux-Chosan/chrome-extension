@@ -4,7 +4,7 @@ import cookieUse from './useCookie'
 import { Search, Plus, ArrowDown } from '@element-plus/icons-vue'
 import ContentEditable from '@/components/ContentEditable.vue';
 import { cookieToString, SameSiteStatus } from '@/utils/cookies'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import tabInfo from '@/utils/tabs/useTab'
 import MySubscribe from './MySubscribe.vue'
 import { getUrlDomain } from '@/utils';
@@ -103,14 +103,14 @@ const activeName = ref('')
             <Transition>
                 <el-card shadow="hover" v-if="activeName === domain">
                     <el-table :data="filteredCookies[domain]" stripe style="width: 100%">
-                        <el-table-column prop="name" label="名称">
+                        <el-table-column prop="name" label="名称" min-width="140">
                             <template #default="{ row, $index }">
                                 <ContentEditable :value="row.name" class="content-editable"
                                     @blur="evt => updateField(domain as string, $index, 'name', evt.target.value, row.name)">
                                 </ContentEditable>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="value" label="值" show-overflow-tooltip>
+                        <el-table-column prop="value" label="值" show-overflow-tooltip min-width="140">
                             <template #default="{ row, $index }">
                                 <ContentEditable :value="row.value" class="content-editable"
                                     @blur="evt => updateField(domain as string, $index, 'value', evt.target.value, row.value)">
@@ -126,10 +126,12 @@ const activeName = ref('')
                         </el-table-column>
                         <el-table-column prop="expirationDate" label="过期时间" min-width="250">
                             <template #default="{ row, $index }">
-                                <el-date-picker
-                                    :model-value="row.expirationDate ? new Date(row.expirationDate * 1000) : null"
-                                    @change="(val: number) => updateField(domain as string, $index, 'expirationDate', val, row.expirationDate)"
-                                    placeholder="session" type="datetime" value-format="x" :shortcuts="[]" />
+                                <el-date-picker :model-value="row.expirationDate * 1000 || null" @update:modelValue="async (val: number) => {
+                                    if (val && val <= Date.now()) {
+                                        await ElMessageBox.confirm(`选择时间小于等于当前时间， cookie 将被自动清除`)
+                                    }
+                                    updateField(domain as string, $index, 'expirationDate', val / 1000, row.expirationDate)
+                                }" placeholder="session" type="datetime" value-format="x" size="small" />
                             </template>
                         </el-table-column>
                         <el-table-column prop="sameSite" label="Same Site" show-overflow-tooltip min-width="140">
@@ -143,14 +145,14 @@ const activeName = ref('')
                         </el-table-column>
                         <el-table-column prop="httpOnly" label="Http Only" min-width="90">
                             <template #default="{ row, $index }">
-                                <el-checkbox :model-value="row.httpOnly"
+                                <el-switch :model-value="row.httpOnly" inline-prompt active-text="Y" inactive-text="N"
                                     @change="(val: boolean) => updateField(domain as string, $index, 'httpOnly', val, row.httpOnly)"
                                     size="small" />
                             </template>
                         </el-table-column>
                         <el-table-column prop="secure" label="Secure">
                             <template #default="{ row, $index }">
-                                <el-checkbox :model-value="row.secure"
+                                <el-switch :model-value="row.secure" inline-prompt active-text="Y" inactive-text="N"
                                     @change="(val: boolean) => updateField(domain as string, $index, 'secure', val, row.secure)"
                                     size="small" />
                             </template>
@@ -225,6 +227,9 @@ const activeName = ref('')
 
 .content-editable {
     min-height: 23px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .cookie-nav {
