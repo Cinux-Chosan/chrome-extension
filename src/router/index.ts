@@ -22,7 +22,7 @@ const router = createRouter({
       name: 'cookie',
       component: () => import('@/views/Cookie/IndexView.vue')
     },
-    { path: '/:pathMatch(.*)*', name: 'NotFound', redirect: '/' },
+    { path: '/:pathMatch(.*)*', name: 'NotFound', redirect: '/cookie' },
   ]
 })
 
