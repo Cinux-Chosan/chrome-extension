@@ -2,7 +2,6 @@
 import { SameSiteStatus, type Cookie } from '@/utils/cookies';
 import type { FormInstance, FormRules } from 'element-plus';
 import { reactive, ref } from 'vue';
-import ipRegex from 'ip-regex';
 
 const emits = defineEmits(['cancel', 'confirm'])
 
@@ -50,8 +49,17 @@ function checkDomain(rule: any, value: string, callback: any) {
 
 const submitForm = async () => {
     const formEl = ruleFormRef.value
-    const result = await formEl?.validate()
-    console.log('result', result);
+    await formEl?.validate()
+    // let { sameSite, secure } = formData
+    // if (sameSite === SameSiteStatus.no_restriction && !secure) {
+    //     await ElMessageBox.confirm(`当前 cookie 未开启 secure，设置为 no_restriction 将强制开启 secure，是否继续`)
+    //     formData.secure = secure = true
+    // }
+
+    // if (!secure && sameSite === SameSiteStatus.no_restriction) {
+    //     await ElMessageBox.confirm(`当前 cookie 的 Same Site 为 no_restriction 且未启用 secure，继续将会设置 Same Site 为默认值 Lax，是否继续`)
+    //     formData.sameSite = sameSite = SameSiteStatus.lax
+    // }
     emits('confirm', formData)
 }
 </script>

@@ -13,6 +13,7 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore"
   },
   "dependencies": {
+    "cookie": "^0.5.0",
     "element-plus": "^2.2.20",
     "ip-regex": "^5.0.0",
     "lodash": "^4.17.21",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/chrome": "0.0.200",
+    "@types/cookie": "^0.5.1",
     "@types/jsdom": "^20.0.0",
     "@types/node": "^16.11.68",
     "@vitejs/plugin-vue": "^3.1.2",

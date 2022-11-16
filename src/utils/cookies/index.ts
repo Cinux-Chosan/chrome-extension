@@ -1,7 +1,6 @@
-import { getUrlDomain } from "../common";
+import { getUrlDomain } from "../common"
 import { groupBy, debounce } from 'lodash'
 
-// export type SameSiteStatus = chrome.cookies.SameSiteStatus
 export type Cookie = chrome.cookies.Cookie
 
 export type CookieChangeInfo = chrome.cookies.CookieChangeInfo
@@ -51,7 +50,25 @@ export async function setCookie(cookie: Cookie, url = formatUrlFromCookie(cookie
     // https://stackoverflow.com/questions/62482934/how-to-set-cookie-with-chrome-extension-api-for-subdomain/74355939#74355939
     // 如果未指定 domain，则会根据 url 计算出 Host-only domain，即不带有点号前缀，只严格匹配 host
     // 但如果指定了 domain，则无论如何都是一个 subdmain，即带有点号前缀
+    assertValidation(cookie)
     return chrome.cookies.set({ ...rest, domain: domain?.startsWith('.') ? domain : undefined, url })
+}
+
+export function assertValidation(cookie: Cookie) {
+    const { sameSite, path, name, secure } = cookie
+
+    if (!secure) {
+        if (sameSite === SameSiteStatus.no_restriction) {
+            throw new Error(`Same Site 为 no_restriction 时必须启用 Secure `)
+        }
+        if (name.match(/__(host|secure)-/i)) {
+            throw new Error(`Cookie 名称为 __Host- 或 __Secure- 开头时必须启用 Secure`)
+        }
+    }
+
+    if (name.match(/__host-/i) && path !== '/') {
+        throw new Error(`以 __Host- 开头的 Cookie Path 必须为 /`)
+    }
 }
 
 export async function setCookiesByUrl(url: string, cookies: chrome.cookies.Cookie[]) {
@@ -66,7 +83,13 @@ export async function updateCookieField<T extends keyof Cookie>(cookie: Cookie, 
     if (_newValue !== _oldValue) {
         // name 和 path 改变会插入新的 cookie，而非覆盖原来的 cookie，而如果是 secure 从 true 变为 false 会报错，因此直接统一删除旧的 cookie 重新插入 cookie
         await removeCookie({ ...cookie, [fieldName]: _oldValue })
-        return setCookie({ ...cookie, [fieldName]: _newValue })
+        try {
+            return await setCookie({ ...cookie, [fieldName]: _newValue })
+        } catch (error) {
+            // recover and rethrow
+            setCookie({ ...cookie, [fieldName]: _oldValue })
+            throw error
+        }
     }
 }
 
@@ -85,7 +108,6 @@ export function formatUrlFromCookie(cookie: Partial<Cookie>) {
     return `http${secure ? 's' : ''}://${domain?.replace(/^\./, '')}${path}`
 }
 
-
 export async function onCookieChanged(callback: (info: CookieChangeInfo) => void) {
     return chrome.cookies.onChanged.addListener(callback)
 }
@@ -94,45 +116,60 @@ export async function onCookieChangedDebounced(callback: (info: CookieChangeInfo
     return chrome.cookies.onChanged.addListener(debouncedCallback)
 }
 
-export function cookieToString(cookie: Omit<Cookie, 'storeId'>) {
+export function parseCookie(cookieStr: string) {
+    const result = {} as any
+    cookieStr.split(';').filter(Boolean).forEach(item => {
+        const [k, v] = item.split('=')
+        const key = k?.trim().toLocaleLowerCase()
+        // domain=;
+        const value = v?.trim() || undefined
+
+        switch (key) {
+            case 'path':
+            case 'domain':
+            case 'expires':
+                result[key] = value
+                break
+            case 'max-age':
+                result.maxAge = value
+                break
+            case 'secure':
+                result.secure = true
+                break
+            case 'httponly':
+                result.httpOnly = true
+                break
+            case 'samesite':
+                result.sameSite = value?.toLocaleLowerCase()
+                break
+            default: {
+                if (key && !result.name) {
+                    result.name = key
+                    result.value = value
+                }
+                break
+            }
+        }
+    })
+
+    return result
+}
+
+export function serializeCookie(cookie: Cookie) {
     const { domain, hostOnly, expirationDate, session, httpOnly, name, value, path, sameSite, secure } = cookie
     const _domain = domain // hostOnly ? domain : domain.startsWith('.') ? domain : `.${domain}`
-    const _secure = secure ? 'Secure;' : ''
-    const _httpOnly = httpOnly ? 'HttpOnly;' : ''
+    const _secure = secure ? ' Secure;' : ''
+    const _httpOnly = httpOnly ? ' HttpOnly;' : ''
     const _expirationDate = session ? null : expirationDate && new Date(expirationDate * 1000)
-    const _expires = _expirationDate ? `Expires=${_expirationDate.toUTCString()};` : ''
-    const _sameSite = SameSiteStatusMap[sameSite] && `SameSite=${SameSiteStatusMap[sameSite]};`
-    return `${name}=${value}; Path=${path}; Domain=${_domain}; ${_httpOnly} ${_secure} ${_expires} ${_sameSite}`.trim()
+    const _expires = _expirationDate ? ` Expires=${_expirationDate.toUTCString()};` : ''
+    const _sameSite = SameSiteStatusMap[sameSite] ? ` SameSite=${SameSiteStatusMap[sameSite]};` : ''
+    return `${name}=${value}; Path=${path}; Domain=${_domain};${_httpOnly + _secure + _expires + _sameSite}`.trim()
 }
 
 export function pruneCookie(cookie: Cookie) {
-    const { expirationDate, hostOnly, session, storeId, sameSite, ...rest } = cookie
-    return {
-        expires: expirationDate ? new Date(expirationDate! * 1000).toUTCString() : undefined,
-        sameSite: SameSiteStatusMap[sameSite] || undefined,
-        ...rest
-    }
+    return parseCookie(serializeCookie(cookie))
 }
 
 export function cookieToJsonStr(cookie: Cookie) {
     return JSON.stringify(pruneCookie(cookie), null, 2)
-}
-
-export async function importCookiesStr(cookies: string) {
-    let cookieList;
-    try {
-        cookieList = JSON.parse(cookies)
-    } catch (error) {
-        cookieList = cookies.split('\n').map(cookieStr => {
-            // TODO: parse
-        })
-    } finally {
-        if (Array.isArray(cookieList)) {
-            await Promise.all(cookieList.map(cookie => {
-                const { expires, ...rest } = cookie
-                cookie.expirationDate = expires ? new Date(expires) : null
-                setCookie(rest)
-            }))
-        }
-    }
 }

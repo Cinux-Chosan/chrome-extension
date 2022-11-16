@@ -33,6 +33,6 @@ async function onEdit() {
 </script>
 
 <template>
-    <el-input v-if="isEdit" v-bind="$attrs" @blur="onBlur" v-model="localValue" ref="inputRef" />
+    <el-input v-if="isEdit" v-bind="$attrs" @blur="onBlur" @keyup.enter="onBlur" v-model="localValue" ref="inputRef" />
     <div v-else @dblclick="onEdit" v-bind="$attrs">{{ value || emptyText }}</div>
 </template>

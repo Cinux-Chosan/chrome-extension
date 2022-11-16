@@ -1,4 +1,4 @@
-import { removeCookie, setCookiesByUrl, updateCookieField, type Cookie, } from "@/utils/cookies";
+import { removeCookie, SameSiteStatus, setCookie, setCookiesByUrl, updateCookieField, parseCookie, type Cookie, } from "@/utils/cookies";
 import tabInfo from '@/utils/tabs/useTab'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCookieRegStore } from "@/stores/cookieReg";
@@ -31,10 +31,15 @@ export function localUseCookies() {
         }
     }
 
-    const updateField = <T extends keyof Cookie>(key: string, index: number, fieldName: T, newValue: Cookie[T], oldValue: Cookie[T]) => {
-        const cookie = cookiesByDomain.value[key][index]
-        Object.assign(cookie, { [fieldName]: newValue })
-        updateCookieField(cookie, fieldName, newValue, oldValue)
+    const updateField = async <T extends keyof Cookie>(key: string, index: number, fieldName: T, newValue: Cookie[T], oldValue: Cookie[T]) => {
+        try {
+            const cookie = cookiesByDomain.value[key][index]
+            const result = await updateCookieField(cookie, fieldName, newValue, oldValue)
+            Object.assign(cookie, { [fieldName]: newValue })
+            return result
+        } catch (error) {
+            ElMessage.error(`更新字段失败：${(error as Error).message || error}`)
+        }
     }
 
     const delCookieItem = async (domain: string, index: number) => {
@@ -47,6 +52,39 @@ export function localUseCookies() {
         await ElMessageBox.confirm(`请确认是否删除域名 ${domain} 下的所有 cookie`)
         cookiesByDomain.value[domain].map(cookie => removeCookie(cookie))
     }
+
+    const importCookiesStr = async (cookies: string) => {
+        let cookieList;
+        try {
+            // parse json cookies
+            cookieList = JSON.parse(cookies)
+            cookieList = Array.isArray(cookieList) ? cookieList : (cookieList && [cookieList])
+        } catch (error) {
+            // parse stringified cookies
+            cookieList = cookies.split('\n').filter(Boolean).map(cookieStr => parseCookie(cookieStr))
+        }
+
+        if (Array.isArray(cookieList)) {
+            return Promise.all(cookieList.filter(Boolean).map(cookie => {
+                const { maxAge, expires, sameSite, ...rest } = cookie
+                return setCookie({
+                    ...rest,
+                    expirationDate:
+                        typeof maxAge === 'number' ?
+                            Date.now() / 1000 + maxAge :
+                            expires ?
+                                new Date(expires).getTime() / 1000 :
+                                undefined,
+                    sameSite: ({
+                        lax: SameSiteStatus.lax,
+                        strict: SameSiteStatus.strict,
+                        none: SameSiteStatus.no_restriction
+                    } as any)[sameSite] || 'unspecified'
+                })
+            }))
+        }
+    }
+
     return {
         cookiesByDomain,
         isLoading,
@@ -55,6 +93,7 @@ export function localUseCookies() {
         updateField,
         delCookieItem,
         delAllCookie,
+        importCookiesStr,
     }
 }
 
