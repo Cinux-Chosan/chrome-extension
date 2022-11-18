@@ -28,6 +28,9 @@ export const useCookieRegStore = defineStore('useCookieReg', () => {
         const registInfo = register.value[targetDomain]
         if (registInfo) {
             registInfo.subscribers = registInfo.subscribers.filter(({ domain }) => domain !== subscriberDomain)
+            if (registInfo.subscribers.length <= 0) {
+                delete register.value[targetDomain]
+            }
         }
     }
 

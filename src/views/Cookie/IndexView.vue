@@ -10,6 +10,7 @@ import MySubscribe from './MySubscribe.vue'
 import CookieInfo from './CookieInfo.vue'
 import ImportCookies from './ImportCookies.vue'
 import { getUrlDomain } from '@/utils';
+import { sortAndLift } from './utils';
 
 const { isHttpTab, currentDomain } = tabInfo
 
@@ -44,15 +45,7 @@ const { searchText, filteredCookies, domains, copyCookie, copyByDomain } = (() =
     const domains = computed(() => {
         const keys = Object.keys(filteredCookies.value)
         // 以域名维度排序
-        keys.sort((a, b) => {
-            a = a.toLocaleLowerCase()
-            b = b.toLocaleLowerCase()
-            const currentDomainValue = currentDomain.value?.toLocaleLowerCase()
-            const currentDomainInA = currentDomainValue?.includes(a.replace(/^\./, '')) && -1
-            const currentDomainInB = currentDomainValue?.includes(b.replace(/^\./, '')) && 1
-            return currentDomainInA || currentDomainInB || a.replace(/^\./, '').localeCompare(b.replace(/^\./, ''))
-        })
-
+        keys.sort((a, b) => sortAndLift(a, b, currentDomain.value))
         return keys
     })
 
