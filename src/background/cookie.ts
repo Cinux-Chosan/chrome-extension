@@ -10,7 +10,7 @@ onCookieChanged((changeInfo: CookieChangeInfo) => {
 async function processCookieSubscribe(changeInfo: CookieChangeInfo) {
     const { cookie, cause, removed } = changeInfo
     const { domain } = cookie
-    const register: RegStore = await getItemData(STORE_KEY)
+    const register: RegStore = await getItemData(STORE_KEY, {})
     const subscriberInfo = register[domain]
     if (subscriberInfo) {
         const { subscribers } = subscriberInfo

@@ -82,6 +82,9 @@ export function localUseCookies() {
                     } as any)[sameSite] || 'unspecified'
                 })
             }))
+        } else {
+            // 解析错误
+            throw new Error(`解析错误！`)
         }
     }
 
